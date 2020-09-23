@@ -1,0 +1,182 @@
+Option Explicit
+
+Sub Main()
+    
+    Dim CurrentRowNumber As Long
+    Dim CurrentColumnNumber As Long
+    ' Declare Current as a worksheet object variable.
+    Dim sheet As Worksheet
+    
+    ' Loop through all of the worksheets in the active workbook.
+    For Each sheet In Worksheets
+    
+        Dim OpenValue, CloseValue As Double
+        Dim Volume As Currency
+        Dim TickerOld, TickerNew As String
+    
+        Volume = OpenValue = CloseValue = 0#
+        TickerOld = "A"
+    
+        ' This line displays the worksheet name in a message box.
+        ' MsgBox sheet.Name
+        ' Debug.Print sheet.Name
+        
+        Worksheets(sheet.Name).Activate
+        Dim wks As Worksheet
+        Set wks = ActiveSheet
+
+        Dim Rrow As Range
+        Dim rowRange As Range
+        Dim colRange As Range
+        Dim DataRange As Range
+
+        Dim LastColumn As Long
+        Dim LastRow As Long
+        LastRow = wks.Cells(wks.Rows.Count, "A").End(xlUp).Row
+        LastColumn = wks.Cells(7, wks.Columns.Count).End(xlToLeft).Column
+
+        Set rowRange = wks.Range("A2:A" & LastRow)
+        Set DataRange = wks.Range(Cells(2, 1), Cells(LastRow, LastColumn))
+        ' Debug.Print rowRange.Value
+
+        OpenValue = wks.Cells(2, 3)
+        ' Debug.Print "1ST Open Vvalue " & OpenValue
+
+        Dim TickerCount As Long
+        TickerCount = 2
+        
+        'Loop through each row
+        For Each Rrow In rowRange
+              
+            'Debug.Print "Row " & Rrow.Row
+            CurrentRowNumber = Rrow.Row
+            
+            
+            ' 'Find Last column in current row
+            ' LastCol = wks.Cells(Rrow, wks.Columns.Count).End(xlToLeft).Column
+            ' Set colRange = wks.Range(wks.Cells(Rrow, 1), wks.Cells(Rrow, LastCol))
+            
+            'If CurrentRowNumber > 600 Then
+            '    Exit For
+            'End If
+            
+            TickerNew = wks.Cells(CurrentRowNumber, 1).Value
+            
+            If TickerNew = TickerOld Then
+                CloseValue = wks.Cells(CurrentRowNumber, 6)
+                Volume = Volume + wks.Cells(CurrentRowNumber, 7)
+            Else
+                ' SUMMARY FOR OLD TICKER
+                'CloseValue = wks.Cells(CurrentRowNumber, 6)
+                'Volume = Volume + wks.Cells(CurrentRowNumber, 7)
+                
+                Dim YearChange As Double
+                Dim PcentChange As Double
+                Dim Ticker As String
+                
+                WriteHeaders wks ' Calling a Sub (Subroutine)to write Headers
+                YearChange = YearlyChange(OpenValue, CloseValue)   ' Calling a Function to compute and return values
+                PcentChange = PercentChange(OpenValue, CloseValue)   ' Calling a Function to compute and return values
+                ' Use Volume
+                Ticker = TickerOld
+              
+                ' Write COmputed data to the Spreadsheets
+                Dim data As Variant
+                data = Array(Ticker, YearChange, PcentChange, Volume)
+                
+                WriteData data, wks, TickerCount ' Calling Subrouting that writes Data
+              
+              
+                
+                ' START AND RESET FOR NEW TICKER
+                OpenValue = wks.Cells(CurrentRowNumber, 3)
+                CloseValue = wks.Cells(CurrentRowNumber, 6)
+                Volume = wks.Cells(CurrentRowNumber, 7)
+                
+                TickerOld = TickerNew
+                TickerCount = TickerCount + 1
+                
+            End If
+       
+        Next Rrow
+        
+        Volume = 0
+        
+        FormatRanges wks, LastRow ' Perform Conditional formatting
+        WriteChallenges wks, LastRow ' Perform Challenges
+        
+    Next
+
+
+End Sub
+
+Function YearlyChange(ByVal OpenValue As Double, ByVal CloseValue As Double) As Double
+    YearlyChange = CloseValue - OpenValue
+End Function
+
+Function PercentChange(ByVal OpenValue As Double, ByVal CloseValue As Double) As Double
+    If OpenValue = 0 Or IsEmpty(OpenValue) = True Then
+        PercentChange = 0
+    Else
+        PercentChange = (YearlyChange(OpenValue, CloseValue) / OpenValue) * 100
+    End If
+End Function
+
+Sub FormatRanges(Worksheet As Worksheet, LastRow As Long)
+    Worksheet.Range("K2:K" & LastRow).NumberFormat = "0.00"
+    Worksheet.Range("L2:L" & LastRow).NumberFormat = "General"
+    
+    Dim cell As Range
+    For Each cell In Worksheet.Range("J2:J" & LastRow)
+        If cell.Value < 0 Then
+            cell.Interior.ColorIndex = 3
+        ElseIf cell.Value > 0 Then
+            cell.Interior.ColorIndex = 4
+        End If
+    Next
+
+End Sub
+
+Sub WriteHeaders(Worksheet As Worksheet)
+    Dim ColumnHeaders, ColumnLetters, ChallengeRowCaptions As Variant
+    ColumnHeaders = Array("Ticker", "Yearly Change", "Percent Change", "Total Stock Volume", "Ticker", "Value")
+    ColumnLetters = Array("I", "J", "K", "L", "P", "Q")
+    ChallengeRowCaptions = Array("Greatest % Increase", "Greatest % Decrease", "Greatest Total Volume")
+
+    Dim index As Integer
+    For index = LBound(ColumnLetters) To UBound(ColumnLetters)
+        Worksheet.Range(ColumnLetters(index) & "1") = ColumnHeaders(index)
+    Next
+
+    Dim I As Integer
+    For I = 2 To 4
+        Worksheet.Range("O" & I) = ChallengeRowCaptions(I - 2)
+    Next I
+
+End Sub
+
+Sub WriteData(data As Variant, Worksheet, TC)
+    Dim ColumnLetters As Variant
+    Dim index As Integer
+    ColumnLetters = Array("I", "J", "K", "L")
+    
+    For index = LBound(ColumnLetters) To UBound(ColumnLetters)
+        Worksheet.Range(ColumnLetters(index) & TC) = data(index)
+    Next
+
+End Sub
+
+Sub WriteChallenges(Worksheet, LastRow)
+    Dim GreatestIncrease, GreatestDecrease, GreatestVolume As Double
+    GreatestIncrease = Application.Max(Worksheet.Range("K2:K" & LastRow))
+    GreatestDecrease = Application.Min(Worksheet.Range("K2:K" & LastRow))
+    GreatestVolume = Application.Max(Worksheet.Range("L2:L" & LastRow))
+    Worksheet.Range("Q2") = GreatestIncrease
+    Worksheet.Range("Q3") = GreatestDecrease
+    Worksheet.Range("Q4") = GreatestVolume
+    
+    Worksheet.Range("P2") = Application.VLookup(GreatestIncrease, Worksheet.Range("I2:K" & LastRow), 1)
+    Worksheet.Range("P3") = Application.VLookup(GreatestDecrease, Worksheet.Range("I2:K" & LastRow), 1)
+    Worksheet.Range("P4") = Application.VLookup(GreatestVolume, Worksheet.Range("I2:K" & LastRow), 1)
+End Sub
+
